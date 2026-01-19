@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
+const CartItem = ({ item, onUpdateQuantity, onRemove, onToggleUrgency }) => {
     const { product, quantity } = item;
 
     return (
@@ -39,6 +39,17 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
                 <div className="text-sm font-bold text-gray-900">
                     ¥{(product.price * quantity).toLocaleString()}
                 </div>
+                <label className="flex items-center gap-1 cursor-pointer mt-1">
+                    <input
+                        type="checkbox"
+                        checked={item.isUrgent || false}
+                        onChange={() => onToggleUrgency && onToggleUrgency(product.id)}
+                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500 border-gray-300"
+                    />
+                    <span className={`text-xs ${item.isUrgent ? 'font-bold text-red-600' : 'text-gray-500'}`}>
+                        {item.isUrgent ? '★急ぎ' : '急ぎ'}
+                    </span>
+                </label>
             </div>
         </div>
     );

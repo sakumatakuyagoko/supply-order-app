@@ -68,7 +68,14 @@ const OrderConfirmationModal = ({
                                     <div key={item.product.id} className="p-3 flex justify-between items-center text-sm">
                                         <div className="flex-1">
                                             <span className="font-medium text-gray-800">{item.product.name}</span>
-                                            <span className="text-gray-500 ml-2">x {item.quantity}{item.product.unit}</span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-gray-500 text-xs">x {item.quantity}{item.product.unit}</span>
+                                                {item.isUrgent && (
+                                                    <span className="text-xs font-bold text-red-600 bg-red-50 px-1 rounded border border-red-200">
+                                                        ★急ぎ
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="font-medium text-gray-900">
                                             ¥{(item.product.price * item.quantity).toLocaleString()}

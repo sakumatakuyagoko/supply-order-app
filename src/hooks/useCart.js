@@ -13,7 +13,7 @@ export function useCart() {
                         : item
                 );
             }
-            return [...currentItems, { product, quantity: 1 }];
+            return [...currentItems, { product, quantity: 1, isUrgent: false }];
         });
     }, []);
 
@@ -30,6 +30,16 @@ export function useCart() {
                 }
                 return item;
             }).filter(item => item.quantity > 0);
+        });
+    }, []);
+
+    const toggleUrgency = useCallback((productId) => {
+        setItems(currentItems => {
+            return currentItems.map(item =>
+                item.product.id === productId
+                    ? { ...item, isUrgent: !item.isUrgent }
+                    : item
+            );
         });
     }, []);
 
@@ -52,6 +62,7 @@ export function useCart() {
         addToCart,
         removeFromCart,
         updateQuantity,
+        toggleUrgency,
         clearCart,
         totalAmount,
         totalItems

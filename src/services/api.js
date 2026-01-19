@@ -1,6 +1,6 @@
 import { MOCK_PRODUCTS, MOCK_EMPLOYEES } from './mockData';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyUnHq5Z3YL3E_PFLgpLHwT1YnXfHXBKW44U95jrLOsZufuw9tW9dYIJMOePG_EUB5oaQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzxSvJQAgVuAHRpXkpR5YdSvNCipkxPNKIxJ0R1xoajFfuRCBEmcu2CzKt09Alp1ILjQg/exec';
 const USE_MOCK = false;
 
 const formatGoogleDriveImage = (url) => {
@@ -35,16 +35,32 @@ export const fetchEmployees = async () => {
     }
 
     try {
-        const response = await fetch(`${API_URL}?type=employees`);
+        const response = await fetch(`${API_URL}?action=getEmployees`);
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
         const data = await response.json();
 
+        // Helper for fuzzy key matching (case-insensitive, ignores whitespace)
+        // Note: Defining this inside each function to avoid scope issues, 
+        // though extracting it to a utility would be cleaner in a larger refactor.
+        const getValue = (item, keys) => {
+            const itemKeys = Object.keys(item);
+            for (const key of keys) {
+                if (item[key] !== undefined) return item[key];
+                const normalize = s => s.trim().toLowerCase();
+                const foundKey = itemKeys.find(k => normalize(k) === normalize(key));
+                if (foundKey) return item[foundKey];
+            }
+            return undefined;
+        };
+
         // Map Japanese columns to standard ID/Name
         return data.map(emp => ({
-            id: String(emp['社員code'] || emp['id'] || ''),
-            name: emp['氏名'] || emp['name'] || ''
+            id: String(getValue(emp, ['社員code', 'id', 'Code']) || ''),
+            name: getValue(emp, ['氏名', 'name', 'Name']) || '',
+            factory: getValue(emp, ['工場', 'factory', 'Factory']) || '',
+            codeName: getValue(emp, ['Code+Name', 'codeName']) || ''
         })).filter(e => e.id); // Filter out empty IDs
 
     } catch (error) {
@@ -63,7 +79,7 @@ export const fetchProducts = async () => {
     }
 
     try {
-        const response = await fetch(`${API_URL}?type=products`);
+        const response = await fetch(`${API_URL}?action=getProducts`); // Explicit action
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
@@ -78,8 +94,8 @@ export const fetchProducts = async () => {
 
                 // Try fuzzy match
                 const normalize = s => s.trim().toLowerCase();
-                const matchedKey = itemKeys.find(k => normalize(k) === normalize(key));
-                if (matchedKey) return item[matchedKey];
+                const foundKey = itemKeys.find(k => normalize(k) === normalize(key));
+                if (foundKey) return item[foundKey];
             }
             return undefined;
         };
@@ -93,6 +109,7 @@ export const fetchProducts = async () => {
             if (!unit || String(unit) === '1') unit = '個';
 
             const stockStatus = getValue(product, ['stockStatus', '在庫状況', '在庫']) || 'In Stock';
+            const supplier = getValue(product, ['supplier', 'Supplier', '発注先', '業者', '仕入先']) || '未設定';
             const imageRaw = getValue(product, ['image', '画像', '画像URL']);
 
             return {
@@ -102,6 +119,7 @@ export const fetchProducts = async () => {
                 price,
                 unit,
                 stockStatus,
+                supplier,
                 image: formatGoogleDriveImage(imageRaw)
             };
         });
@@ -112,11 +130,11 @@ export const fetchProducts = async () => {
     }
 };
 
-export const submitOrder = async (orderItems, ordererId) => {
+export const submitOrder = async (orderItems, orderer) => {
     if (USE_MOCK) {
         return new Promise((resolve) => {
             setTimeout(() => {
-                console.log('Order submitted:', { items: orderItems, ordererId });
+                console.log('Order submitted:', { items: orderItems, orderer });
                 resolve({ success: true, message: 'Mock order submitted successfully' });
             }, 1000);
         });
@@ -127,7 +145,6 @@ export const submitOrder = async (orderItems, ordererId) => {
 
         // Send as no-cors to avoid CORS issues with simple triggers if any, 
         // but GAS Web App returning JSON usually requires waiting for response.
-        // Standard fetch with POST to GAS often has CORS redirect issues.
         // We'll use standard POST which follows redirects usually.
         // Note: detailed error handling might be limited with simple fetch due to opaque redirects.
 
@@ -139,7 +156,8 @@ export const submitOrder = async (orderItems, ordererId) => {
             body: JSON.stringify({
                 items: orderItems,
                 totalAmount: totalAmount,
-                ordererId: ordererId
+                orderer: orderer, // Send full object
+                ordererId: typeof orderer === 'string' ? orderer : orderer.codeName || orderer.name // Fallback for sheet log
             })
         });
 

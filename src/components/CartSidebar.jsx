@@ -8,7 +8,9 @@ const CartSidebar = ({
     onUpdateQuantity,
     onRemove,
     onClearCart,
-    onInitiateOrder
+    onInitiateOrder,
+    onClose, // Add onClose prop
+    onToggleUrgency
 }) => {
     const isEmpty = cartItems.length === 0;
     const [employeeId, setEmployeeId] = useState('');
@@ -42,28 +44,36 @@ const CartSidebar = ({
     const isValidEmployee = employeeName !== '';
 
     return (
-        <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-xl w-full max-w-md">
-            {/* Same header content... but skipping rewrite for brevity if possible, using ReplaceFileContent on smaller chunks is safer if context allows. 
-               Actually, since I need to change variables inside the component body and the JSX at the bottom, I should probably split or rewrite the component logic part and the render part.
-               Let's do the render logic for the input and button.
-            */}
+        <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-xl w-full max-w-md h-full">
             <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <span>🛒</span> 買い物カゴ
                 </h2>
-                {!isEmpty && (
+                <div className="flex items-center gap-2">
+                    {!isEmpty && (
+                        <button
+                            onClick={() => {
+                                if (confirm('カートを空にしますか？')) onClearCart();
+                            }}
+                            className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                            title="カートを空にする"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    )}
+                    {/* Mobile Close Button */}
                     <button
-                        onClick={() => {
-                            if (confirm('カートを空にしますか？')) onClearCart();
-                        }}
-                        className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
-                        title="カートを空にする"
+                        onClick={onClose}
+                        className="md:hidden text-gray-500 hover:text-gray-700 p-1"
+                        title="閉じる"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
-                )}
+                </div>
             </div>
 
             <div className="flex-grow overflow-y-auto p-4">
@@ -82,6 +92,7 @@ const CartSidebar = ({
                                 item={item}
                                 onUpdateQuantity={onUpdateQuantity}
                                 onRemove={onRemove}
+                                onToggleUrgency={onToggleUrgency}
                             />
                         ))}
                     </div>
@@ -101,7 +112,7 @@ const CartSidebar = ({
                             value={employeeId}
                             onChange={(e) => setEmployeeId(e.target.value)}
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            placeholder="例: 1001"
+                            placeholder="例: 999"
                         />
                     </div>
                     {employeeName ? (
@@ -126,8 +137,10 @@ const CartSidebar = ({
 
                 <button
                     onClick={() => {
-                        if (!isValidEmployee) return;
-                        onInitiateOrder({ id: employeeId, name: employeeName });
+                        const found = employees.find(e => String(e.id) === String(employeeId));
+                        if (!found) return;
+                        // Pass the full employee object including factory and codeName
+                        onInitiateOrder(found);
                     }}
                     disabled={isEmpty || !isValidEmployee}
                     className={`w-full py-3 text-lg shadow-md flex items-center justify-center gap-2 transition-all rounded-lg font-bold text-white
