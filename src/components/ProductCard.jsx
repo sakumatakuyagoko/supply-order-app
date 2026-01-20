@@ -73,7 +73,7 @@ const ProductCard = ({ product, onAddToCart }) => {
                     <button
                         onClick={() => onAddToCart(product)}
                         disabled={isOutOfStock}
-                        className="btn-primary py-1.5 px-3 text-xs shadow-sm active:scale-95 transition-all whitespace-nowrap"
+                        className="btn-primary py-2.5 px-6 text-sm font-bold shadow-md active:scale-95 transition-all whitespace-nowrap"
                     >
                         追加
                     </button>
