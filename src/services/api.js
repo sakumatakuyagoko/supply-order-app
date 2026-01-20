@@ -1,6 +1,6 @@
 import { MOCK_PRODUCTS, MOCK_EMPLOYEES } from './mockData';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzxSvJQAgVuAHRpXkpR5YdSvNCipkxPNKIxJ0R1xoajFfuRCBEmcu2CzKt09Alp1ILjQg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxIbmW7hzB4bdaNo_bmiWtXmXmPPdS9N-abuEZJ28DLi5vwDdmv1W0nhC5iwQRrFXQKyQ/exec';
 const USE_MOCK = false;
 
 const formatGoogleDriveImage = (url) => {
@@ -35,7 +35,7 @@ export const fetchEmployees = async () => {
     }
 
     try {
-        const response = await fetch(`${API_URL}?action=getEmployees`);
+        const response = await fetch(`${API_URL}?type=employees`);
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
@@ -79,7 +79,7 @@ export const fetchProducts = async () => {
     }
 
     try {
-        const response = await fetch(`${API_URL}?action=getProducts`); // Explicit action
+        const response = await fetch(`${API_URL}?type=products`); // Explicit type
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
@@ -141,24 +141,33 @@ export const submitOrder = async (orderItems, orderer) => {
     }
 
     try {
-        const totalAmount = orderItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        let payload = {};
 
-        // Send as no-cors to avoid CORS issues with simple triggers if any, 
-        // but GAS Web App returning JSON usually requires waiting for response.
-        // We'll use standard POST which follows redirects usually.
-        // Note: detailed error handling might be limited with simple fetch due to opaque redirects.
+        // Check if we are sending the new format (list of orders with PDFs)
+        if (Array.isArray(orderItems) && orderItems.length > 0 && orderItems[0].pdfBase64) {
+            payload = {
+                orders: orderItems, // Each item here is { supplier, items: [], pdfBase64, fileName }
+                orderer: orderer,
+                ordererId: typeof orderer === 'string' ? orderer : orderer.codeName || orderer.name,
+                type: 'multi_supplier_order'
+            };
+        } else {
+            // Legacy format
+            const totalAmount = orderItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+            payload = {
+                items: orderItems,
+                totalAmount: totalAmount,
+                orderer: orderer,
+                ordererId: typeof orderer === 'string' ? orderer : orderer.codeName || orderer.name
+            };
+        }
 
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'text/plain;charset=utf-8', // GAS handles text/plain better without preflight
+                'Content-Type': 'text/plain;charset=utf-8',
             },
-            body: JSON.stringify({
-                items: orderItems,
-                totalAmount: totalAmount,
-                orderer: orderer, // Send full object
-                ordererId: typeof orderer === 'string' ? orderer : orderer.codeName || orderer.name // Fallback for sheet log
-            })
+            body: JSON.stringify(payload)
         });
 
         const result = await response.json();

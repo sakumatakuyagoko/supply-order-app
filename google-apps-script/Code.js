@@ -64,45 +64,99 @@ function doPost(e) {
     try {
         const body = JSON.parse(e.postData.contents);
         const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders');
+        const recipient = 'sakumatakuya.goko@gmail.com'; // Admin/Target email
 
-        // Create detailed email body
-        // Create readable string for Sheet
-        const itemsString = orderItems.map(item =>
-            `${item.product.name} x${item.quantity}`
-        ).join(', ');
+        // Handle multi-supplier order (with PDFs)
+        if (body.type === 'multi_supplier_order' && body.orders && Array.isArray(body.orders)) {
+            const results = [];
+            const timestamp = new Date();
 
-        // Append to Sheet
-        sheet.appendRow([
-            orderId,
-            new Date(),
-            ordererId,
-            itemsString, // Readable string instead of JSON
-            totalAmount,
-            'Pending'
-        ]);
+            body.orders.forEach(order => {
+                // order structure: { supplier, items, pdfBase64, fileName }
+                const itemsString = order.items.map(item =>
+                    `${item.product.name} x${item.quantity}`
+                ).join(', ');
 
-        // Send Email
-        const emailSubject = `[発注通知] 新しい注文が入りました (${orderId})`;
-        let emailBody = `以下の注文を受け付けました。\n\n注文ID: ${orderId}\n発注者: ${ordererId}\n合計金額: ¥${totalAmount.toLocaleString()}\n\n注文内容:\n`;
+                const subTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-        orderItems.forEach(item => {
-            emailBody += `- ${item.product.name} x ${item.quantity}${item.product.unit} (¥${(item.product.price * item.quantity).toLocaleString()})\n`;
-        });
+                // Generate a unique ID for the sheet row or use one if passed.
+                // We'll generate one based on time + supplier to ensure uniqueness in log.
+                const sheetOrderId = 'ORD-' + timestamp.getTime() + '-' + order.supplier.substring(0, 2); // Simple suffix
 
-        // Send to the admin email (Hardcoded to avoid getActiveUser issues)
-        const recipient = 'sakumatakuya.goko@gmail.com';
-        MailApp.sendEmail(recipient, emailSubject, emailBody);
+                // Append to Sheet
+                sheet.appendRow([
+                    sheetOrderId,
+                    timestamp,
+                    body.ordererId + ' (' + order.supplier + ')', // Log who ordered and for which supplier
+                    itemsString,
+                    subTotal,
+                    'Pending'
+                ]);
 
-        return ContentService.createTextOutput(JSON.stringify({
-            success: true,
-            message: 'Order placed successfully',
-            orderId: orderId
-        })).setMimeType(ContentService.MimeType.JSON);
+                // Send Email with PDF Attachment
+                try {
+                    const blob = Utilities.newBlob(Utilities.base64Decode(order.pdfBase64), 'application/pdf', order.fileName);
+                    const subject = `[発注書] ${order.supplier} 御中 (発注者: ${body.ordererId})`;
+                    const bodyText = `${order.supplier} 御中\n\nいつも大変お世話になっております。\n株式会社五光の${body.ordererId}です。\n\n添付の通り注文書を送付いたします。\nご確認のほど、何卒よろしくお願い申し上げます。\n\n--------------------------------------------------\n注文ID: ${sheetOrderId}\n発注日: ${timestamp.toLocaleDateString('ja-JP')}\n--------------------------------------------------`;
+
+                    MailApp.sendEmail({
+                        to: recipient, // In production, this might map to supplier's email
+                        subject: subject,
+                        body: bodyText,
+                        attachments: [blob]
+                    });
+                } catch (emailError) {
+                    console.error('Email sending failed for ' + order.supplier + ': ' + emailError);
+                    // Decide whether to fail the whole request or continue. 
+                    // For now, log and continue.
+                }
+
+                results.push(sheetOrderId);
+            });
+
+            return ContentService.createTextOutput(JSON.stringify({
+                success: true,
+                message: 'Orders processed successfully',
+                orderIds: results
+            })).setMimeType(ContentService.MimeType.JSON);
+
+        } else {
+            // Legacy / Standard single order handling
+            const items = body.items || [];
+            const orderId = 'ORD-' + Date.now();
+            const ordererId = body.ordererId || 'Unknown';
+            const totalAmount = body.totalAmount || 0;
+
+            const itemsString = items.map(item =>
+                `${item.product.name} x${item.quantity}`
+            ).join(', ');
+
+            sheet.appendRow([
+                orderId,
+                new Date(),
+                ordererId,
+                itemsString,
+                totalAmount,
+                'Pending'
+            ]);
+
+            // Simple notification email (no attachment)
+            const subject = `[発注通知] 新しい注文が入りました (${orderId})`;
+            const bodyText = `注文ID: ${orderId}\n発注者: ${ordererId}\n合計金額: ¥${totalAmount.toLocaleString()}\n\n注文内容:\n${itemsString}`;
+
+            MailApp.sendEmail(recipient, subject, bodyText);
+
+            return ContentService.createTextOutput(JSON.stringify({
+                success: true,
+                message: 'Order placed successfully (Legacy)',
+                orderId: orderId
+            })).setMimeType(ContentService.MimeType.JSON);
+        }
 
     } catch (error) {
         return ContentService.createTextOutput(JSON.stringify({
             success: false,
-            message: error.toString()
+            message: 'Error: ' + error.toString()
         })).setMimeType(ContentService.MimeType.JSON);
     }
 }
