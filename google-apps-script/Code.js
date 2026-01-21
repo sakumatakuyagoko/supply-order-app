@@ -59,18 +59,26 @@ function doPost(e) {
             const sheet = ss.getSheetByName('Orders');
             const data = sheet.getDataRange().getValues();
             const orderId = body.orderId;
+            const targetItems = body.targetItems; // Array of ProductNames (optional)
             let found = false;
 
             // "Orders" Sheet Columns (Based on User Screenshot):
-            // A: OrderId (0)
-            // I: Status (8) - "Pending" -> "Received"
-            // K: ReceivedAt (10) - New Column for Timestamp
+            // A: OrderId (0), E: ProductName (4), I: Status (8), K: ReceivedAt (10)
 
-            // Loop and update ALL rows with matching OrderId
             for (let i = 1; i < data.length; i++) {
-                if (data[i][0] == orderId) { // Check OrderId matched
+                if (data[i][0] == orderId) { // Match OrderId
+                    const currentStatus = data[i][8];
+                    // Skip if already received (optional check, but good for partial updates)
+                    if (currentStatus === 'Received') continue;
+
+                    // If targetItems is specified, check if this row's product is in the list
+                    const productName = data[i][4];
+                    if (targetItems && !targetItems.includes(productName)) {
+                        continue; // Skip this item as it's not selected
+                    }
+
                     sheet.getRange(i + 1, 9).setValue('Received'); // Col I (Status)
-                    sheet.getRange(i + 1, 11).setValue(new Date()); // Col K (ReceivedAt - New)
+                    sheet.getRange(i + 1, 11).setValue(new Date()); // Col K (ReceivedAt)
                     found = true;
                 }
             }
@@ -78,7 +86,7 @@ function doPost(e) {
             if (found) {
                 return createJSONOutput({ success: true, message: 'Order received.' });
             } else {
-                return createJSONOutput({ success: false, message: 'Order not found.' });
+                return createJSONOutput({ success: false, message: 'Order not found or no items updated.' });
             }
         }
 

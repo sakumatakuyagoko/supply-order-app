@@ -22,12 +22,20 @@ export const fetchOrders = async () => {
     }
 };
 
-export const receiveOrder = async (orderId) => {
+export const receiveOrder = async (orderId, items = null) => {
     try {
+        const payload = {
+            action: 'receive',
+            orderId: orderId
+        };
+        if (items) {
+            payload.targetItems = items;
+        }
+
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'receive', orderId: orderId })
+            body: JSON.stringify(payload)
         });
         return await handleResponse(response);
     } catch (error) {
