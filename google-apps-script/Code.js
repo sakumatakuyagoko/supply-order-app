@@ -1,5 +1,6 @@
 /*
  * Google Apps Script for Supply Order App
+ * Last Updated: 2026-01-21 11:35
  * 
  * Update: Added Receiving, History, and Item Management features
  * Schema: Aligned with User's current "Orders" sheet (Item-level rows)
