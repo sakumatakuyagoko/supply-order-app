@@ -219,7 +219,7 @@ const ReceivePage = () => {
                             onClick={() => setScanning(!scanning)}
                             className={`p-2 px-3 rounded-lg text-white transition-colors flex-shrink-0 text-sm font-bold ${scanning ? 'bg-gray-500' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
-                            {scanning ? '閉じる' : 'QR Scan'}
+                            {scanning ? '閉じる' : 'カメラ起動'}
                         </button>
                     </div>
                     {scanning && (
