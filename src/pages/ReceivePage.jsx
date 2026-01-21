@@ -299,8 +299,12 @@ const ReceivePage = () => {
 
                             <div className="flex flex-col gap-3">
                                 <button
-                                    onClick={() => executeReceive(modalOrder.id, null)}
-                                    className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700"
+                                    onClick={() => selectedItems.length === 0 && executeReceive(modalOrder.id, null)}
+                                    disabled={selectedItems.length > 0}
+                                    className={`w-full font-bold py-3 rounded-lg transition-colors ${selectedItems.length > 0
+                                            ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
+                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                        }`}
                                 >
                                     全点受入 (一括)
                                 </button>
