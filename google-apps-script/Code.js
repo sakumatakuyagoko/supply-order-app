@@ -1,58 +1,47 @@
 /*
  * Google Apps Script for Supply Order App
  * 
- * Setup Instructions:
- * 1. Create a Google Sheet with two tabs: "Products" and "Orders"
- * 2. "Products" columns: id, name, category, price, unit, stockStatus, image
- * 3. "Orders" columns: orderId, timestamp, orderer, items_json, totalAmount, status
- * 4. Tools > Script editor, copy this code
- * 5. Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone
+ * Update: Added Receiving, History, and Item Management features
+ * Schema: Aligned with User's current "Orders" sheet (Item-level rows)
  */
 
 function doGet(e) {
     const type = e.parameter.type || 'products';
 
+    // 1. Get Employees
     if (type === 'employees') {
-        const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('EmpList');
-        // Assuming validation is done or sheet exists
-        const data = sheet.getDataRange().getValues();
-        if (data.length === 0) return createJSONOutput([]);
-
-        const headers = data[0];
-        const employees = [];
-
-        // Map specific Japanese columns to standardized keys if needed, or just pass through
-        // Here we'll pass through everything and let frontend handle mapping, 
-        // OR we can map here if we want to be strict.
-        // Let's pass through as objects keyed by header names.
-
-        for (let i = 1; i < data.length; i++) {
-            const row = data[i];
-            const emp = {};
-            for (let j = 0; j < headers.length; j++) {
-                emp[headers[j]] = row[j];
-            }
-            employees.push(emp);
-        }
-        return createJSONOutput(employees);
+        return getSheetData('EmpList');
     }
 
-    // Default: Products
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Products');
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const products = [];
+    // 2. Get Order History
+    if (type === 'orders') {
+        return getSheetData('Orders');
+    }
 
+    // Default: Get Products
+    return getSheetData('Products');
+}
+
+function getSheetData(sheetName) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    if (!sheet) return createJSONOutput([]);
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return createJSONOutput([]);
+
+    const headers = data[0];
+    const result = [];
+
+    // Simple parser that maps headers to object keys
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        const product = {};
+        const item = {};
         for (let j = 0; j < headers.length; j++) {
-            product[headers[j]] = row[j];
+            item[headers[j]] = row[j];
         }
-        products.push(product);
+        result.push(item);
     }
-
-    return createJSONOutput(products);
+    return createJSONOutput(result);
 }
 
 function createJSONOutput(data) {
@@ -63,100 +52,221 @@ function createJSONOutput(data) {
 function doPost(e) {
     try {
         const body = JSON.parse(e.postData.contents);
-        const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders');
-        const recipient = 'sakumatakuya.goko@gmail.com'; // Admin/Target email
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-        // Handle multi-supplier order (with PDFs)
+        // --- ACTION: RECEIVE ORDER ---
+        if (body.action === 'receive') {
+            const sheet = ss.getSheetByName('Orders');
+            const data = sheet.getDataRange().getValues();
+            const orderId = body.orderId;
+            let found = false;
+
+            // "Orders" Sheet Columns (Based on User Screenshot):
+            // A: OrderId (0)
+            // I: Status (8) - "Pending" -> "Received"
+            // K: ReceivedAt (10) - New Column for Timestamp
+
+            // Loop and update ALL rows with matching OrderId
+            for (let i = 1; i < data.length; i++) {
+                if (data[i][0] == orderId) { // Check OrderId matched
+                    sheet.getRange(i + 1, 9).setValue('Received'); // Col I (Status)
+                    sheet.getRange(i + 1, 11).setValue(new Date()); // Col K (ReceivedAt - New)
+                    found = true;
+                }
+            }
+
+            if (found) {
+                return createJSONOutput({ success: true, message: 'Order received.' });
+            } else {
+                return createJSONOutput({ success: false, message: 'Order not found.' });
+            }
+        }
+
+        // --- ACTION: REGISTER PRODUCT ---
+        if (body.action === 'registerProduct') {
+            const sheet = ss.getSheetByName('Products');
+            const data = sheet.getDataRange().getValues();
+            // Simple Numeric ID auto-increment
+            // Check max ID in Column A (index 0)
+            let maxId = 0;
+            if (data.length > 1) {
+                for (let i = 1; i < data.length; i++) {
+                    let id = parseInt(data[i][0]);
+                    if (!isNaN(id) && id > maxId) maxId = id;
+                }
+            }
+            const newId = maxId + 1;
+
+            sheet.appendRow([
+                newId,
+                body.name,
+                body.category,
+                body.price,
+                body.unit,
+                'In Stock', // Default status
+                body.image || ''
+            ]);
+
+            return createJSONOutput({ success: true, message: 'Product registered.' });
+        }
+
+        // --- ACTION: UPDATE PRODUCT ---
+        if (body.action === 'updateProduct') {
+            const sheet = ss.getSheetByName('Products');
+            const historySheet = ss.getSheetByName('ProductHistory');
+            // If history sheet doesn't exist, try to insert (or fail gracefully)
+            if (!historySheet && body.createHistory) {
+                try { ss.insertSheet('ProductHistory'); } catch (e) { }
+            }
+
+            const data = sheet.getDataRange().getValues();
+            const targetId = body.id;
+            let updated = false;
+
+            for (let i = 1; i < data.length; i++) {
+                // Check ID match (Column A)
+                if (data[i][0] == targetId) {
+
+                    // Log to history first
+                    if (historySheet) {
+                        historySheet.appendRow([
+                            new Date(),
+                            'UPDATE',
+                            JSON.stringify(data[i]), // Old data dump
+                            body.updater || 'Admin'
+                        ]);
+                    }
+
+                    // Update columns (Assuming Products format: id, name, category, price, unit, stock, image)
+                    if (body.name) sheet.getRange(i + 1, 2).setValue(body.name);
+                    if (body.category) sheet.getRange(i + 1, 3).setValue(body.category);
+                    if (body.price) sheet.getRange(i + 1, 4).setValue(body.price);
+                    if (body.unit) sheet.getRange(i + 1, 5).setValue(body.unit);
+                    if (body.stockStatus) sheet.getRange(i + 1, 6).setValue(body.stockStatus);
+                    if (body.image) sheet.getRange(i + 1, 7).setValue(body.image);
+
+                    updated = true;
+                    break;
+                }
+            }
+
+            if (updated) {
+                return createJSONOutput({ success: true, message: 'Product updated.' });
+            } else {
+                return createJSONOutput({ success: false, message: 'Product not found.' });
+            }
+        }
+
+
+        // --- ORIGINAL ORDER LOGIC (Multi-supplier) ---
         if (body.type === 'multi_supplier_order' && body.orders && Array.isArray(body.orders)) {
+            const sheet = ss.getSheetByName('Orders');
+            const recipient = 'sakumatakuya.goko@gmail.com';
             const results = [];
             const timestamp = new Date();
 
+            // Orderer Info parsing
+            const ordererInfo = body.orderer || {};
+            const ordererNameLine = ordererInfo.codeName || (body.ordererId || '不明');
+            const factory = ordererInfo.factory || '未設定'; // If needed
+
             body.orders.forEach(order => {
-                // order structure: { supplier, items, pdfBase64, fileName }
-                const itemsString = order.items.map(item =>
-                    `${item.product.name} x${item.quantity}`
-                ).join(', ');
+                const sheetOrderId = 'ORD-' + timestamp.getTime() + '-' + order.supplier.substring(0, 2);
 
-                const subTotal = order.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                // HTML Item List for Email
+                const itemsListHtml = order.items.map(item => {
+                    const unit = item.product.unit || '個';
+                    return `<b>${item.product.name} X ${item.quantity}${unit}<br>&nbsp;&nbsp;納入場所（${factory}）：発注者（${ordererNameLine}）</b>`;
+                }).join('<br><br>');
 
-                // Generate a unique ID for the sheet row or use one if passed.
-                // We'll generate one based on time + supplier to ensure uniqueness in log.
-                const sheetOrderId = 'ORD-' + timestamp.getTime() + '-' + order.supplier.substring(0, 2); // Simple suffix
+                // Append Rows to Sheet (ONE ROW PER ITEM)
+                // Columns: A:OrderId, B:Date, C:Orderer, D:Supplier, E:ProductName, F:Quantity, G:Unit, H:IsUrgent, I:Status, J:ReceivedQty
+                order.items.forEach(item => {
+                    const unit = item.product.unit || '個';
+                    // We don't have explicit "isUrgent" in cart item yet, default to FALSE or pass if enabled later
+                    const isUrgent = item.isUrgent || false;
 
-                // Append to Sheet
-                sheet.appendRow([
-                    sheetOrderId,
-                    timestamp,
-                    body.ordererId + ' (' + order.supplier + ')', // Log who ordered and for which supplier
-                    itemsString,
-                    subTotal,
-                    'Pending'
-                ]);
+                    sheet.appendRow([
+                        sheetOrderId,       // A: OrderId
+                        timestamp,          // B: Date
+                        ordererNameLine,    // C: Orderer
+                        order.supplier,     // D: Supplier
+                        item.product.name,  // E: ProductName
+                        item.quantity,      // F: Quantity
+                        unit,               // G: Unit
+                        isUrgent,           // H: IsUrgent
+                        'Pending',          // I: Status
+                        0                   // J: ReceivedQty
+                    ]);
+                });
 
-                // Send Email with PDF Attachment
+                // Email Logic (Send one email per supplier order)
                 try {
+                    // Re-use HTML email logic...
                     const blob = Utilities.newBlob(Utilities.base64Decode(order.pdfBase64), 'application/pdf', order.fileName);
-                    const subject = `[発注書] ${order.supplier} 御中 (発注者: ${body.ordererId})`;
-                    const bodyText = `${order.supplier} 御中\n\nいつも大変お世話になっております。\n株式会社五光の${body.ordererId}です。\n\n添付の通り注文書を送付いたします。\nご確認のほど、何卒よろしくお願い申し上げます。\n\n--------------------------------------------------\n注文ID: ${sheetOrderId}\n発注日: ${timestamp.toLocaleDateString('ja-JP')}\n--------------------------------------------------`;
+                    const subject = `[発注書] ${order.supplier} 御中`;
+                    const htmlBody = `
+                        ${order.supplier} 御中<br>ご担当者 様<br><br>
+                        いつも大変お世話になっております。<br><br>
+                        下記、発注させていただきます。<br>
+                        添付の注文書（PDF）をご確認の上、よろしくお手配ください。<br><br>
+                        ＊【至急】アイテムの納入に時間がかかる場合、すみやかにご連絡お願いします。<br>
+                        ＊<b>納入時、注文書PDFを印刷</b>してお持ちいただく（QRコードで納入受付をいたします）<br>
+                        <br>
+                        <br>
+                        <br>
+                        記<br>
+                        <br>
+                        ${itemsListHtml}<br>
+                        <br>
+                        お問合せ・ご不明点は、納入工場の下記窓口までお問合せください。<br>
+                        <br>
+                        以上<br>
+                        <br>
+                        お問合せ窓口<br>
+                        ****************************************************<br>
+                        株式会社　五光　古河工場　担当：知久<br>
+                        〒306-0202　茨城県古河市稲宮1034<br>
+                        Tel　0280-98-6222<br>
+                        Fax　0280-98-6231<br>
+                        e-mail: chiku.goko@gmail.com<br>
+                        ****************************************************<br>
+                        株式会社　五光　茨城工場　担当：中山<br>
+                        〒300-3561　茨城県結城郡八千代町平塚4600<br>
+                        Tel　0296-48-3021<br>
+                        Fax　0296-48-3022<br>
+                        e-mail: nakayamatomoko.goko@gmail.com<br>
+                        ****************************************************
+                    `;
 
                     MailApp.sendEmail({
-                        to: recipient, // In production, this might map to supplier's email
+                        to: recipient,
                         subject: subject,
-                        body: bodyText,
+                        htmlBody: htmlBody,
                         attachments: [blob]
                     });
                 } catch (emailError) {
                     console.error('Email sending failed for ' + order.supplier + ': ' + emailError);
-                    // Decide whether to fail the whole request or continue. 
-                    // For now, log and continue.
                 }
 
                 results.push(sheetOrderId);
             });
 
-            return ContentService.createTextOutput(JSON.stringify({
+            return createJSONOutput({
                 success: true,
                 message: 'Orders processed successfully',
                 orderIds: results
-            })).setMimeType(ContentService.MimeType.JSON);
+            });
+        }
 
-        } else {
-            // Legacy / Standard single order handling
-            const items = body.items || [];
-            const orderId = 'ORD-' + Date.now();
-            const ordererId = body.ordererId || 'Unknown';
-            const totalAmount = body.totalAmount || 0;
-
-            const itemsString = items.map(item =>
-                `${item.product.name} x${item.quantity}`
-            ).join(', ');
-
-            sheet.appendRow([
-                orderId,
-                new Date(),
-                ordererId,
-                itemsString,
-                totalAmount,
-                'Pending'
-            ]);
-
-            // Simple notification email (no attachment)
-            const subject = `[発注通知] 新しい注文が入りました (${orderId})`;
-            const bodyText = `注文ID: ${orderId}\n発注者: ${ordererId}\n合計金額: ¥${totalAmount.toLocaleString()}\n\n注文内容:\n${itemsString}`;
-
-            MailApp.sendEmail(recipient, subject, bodyText);
-
-            return ContentService.createTextOutput(JSON.stringify({
-                success: true,
-                message: 'Order placed successfully (Legacy)',
-                orderId: orderId
-            })).setMimeType(ContentService.MimeType.JSON);
+        else {
+            return createJSONOutput({ success: false, message: 'Legacy format not supported.' });
         }
 
     } catch (error) {
-        return ContentService.createTextOutput(JSON.stringify({
+        return createJSONOutput({
             success: false,
             message: 'Error: ' + error.toString()
-        })).setMimeType(ContentService.MimeType.JSON);
+        });
     }
 }

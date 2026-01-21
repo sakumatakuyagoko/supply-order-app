@@ -27,7 +27,7 @@ function HomePage() {
             ),
             path: '/receive',
             color: 'bg-green-50 hover:bg-green-100 border-green-200',
-            active: false // Coming soon
+            active: true
         },
         {
             title: '発注履歴',
