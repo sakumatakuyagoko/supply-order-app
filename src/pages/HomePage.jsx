@@ -60,7 +60,10 @@ function HomePage() {
             <header className="bg-blue-600 shadow-sm z-10 p-4 flex justify-between items-center h-20">
                 <h1 className="text-2xl font-bold text-white flex items-center gap-4">
                     <img src="/company_icon.png" alt="Company Logo" className="h-10 w-auto bg-white p-1 rounded flex-shrink-0" />
-                    <span>消耗・備品オーダーシステム</span>
+                    <div className="flex flex-col">
+                        <span>消耗・備品オーダーシステム</span>
+                        <span className="text-[10px] font-normal opacity-80">Ver 1.0 (2026/01/21更新)</span>
+                    </div>
                 </h1>
                 <img src="/factory_icon.png" alt="Factory Logo" className="h-12 w-auto object-contain" />
             </header>
