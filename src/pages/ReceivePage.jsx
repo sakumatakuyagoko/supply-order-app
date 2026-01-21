@@ -52,7 +52,7 @@ const ReceivePage = () => {
         let html5QrCode;
         if (scanning) {
             html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+            const config = { fps: 10 };
 
             // Prefer back camera
             html5QrCode.start(
