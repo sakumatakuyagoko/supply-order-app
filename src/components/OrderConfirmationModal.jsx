@@ -96,6 +96,7 @@ const OrderConfirmationModal = ({
                 const base64 = await blobToBase64(blob);
 
                 orders.push({
+                    id: baseOrderId + '-' + index, // Pass the ID to backend
                     supplier,
                     items,
                     pdfBase64: base64,

@@ -1,6 +1,6 @@
 /*
  * Google Apps Script for Supply Order App
- * Last Updated: 2026-01-21 11:35
+ * Last Updated: 2026-01-21 11:55
  * 
  * Update: Added Receiving, History, and Item Management features
  * Schema: Aligned with User's current "Orders" sheet (Item-level rows)
@@ -180,7 +180,8 @@ function doPost(e) {
             const factory = ordererInfo.factory || '未設定'; // If needed
 
             body.orders.forEach(order => {
-                const sheetOrderId = 'ORD-' + timestamp.getTime() + '-' + order.supplier.substring(0, 2);
+                // Use provided ID if available (matches QR code), else generate one
+                const sheetOrderId = order.id || ('ORD-' + timestamp.getTime() + '-' + order.supplier.substring(0, 2));
 
                 // HTML Item List for Email
                 const itemsListHtml = order.items.map(item => {
