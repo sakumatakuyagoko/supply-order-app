@@ -130,55 +130,7 @@ const ReceivePage = () => {
 
     // ... (rest of code)
 
-    // In JSX:
-    // Update Search Area
-    <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
-        <div className="flex gap-2 mb-4">
-            <div className="relative flex-grow">
-                <input
-                    type="text"
-                    placeholder="注文ID / 業者 / 発注者で検索"
-                    className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2 text-sm"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                    <button
-                        onClick={() => setSearchTerm('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                )}
-            </div>
-            <button
-                onClick={() => {
-                    if (!scanning) setSearchTerm(''); // Clear on start
-                    setScanning(!scanning);
-                }}
-                className={`p-2 px-3 rounded-lg text-white transition-colors flex-shrink-0 text-sm font-bold ${scanning ? 'bg-gray-500' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-                {scanning ? '閉じる' : 'カメラ起動'}
-            </button>
-        </div>
-        {scanning && (
-            <div className="mb-4 bg-black rounded-lg overflow-hidden relative">
-                <div id="reader" className="w-full h-64 bg-black"></div>
-                <div className="absolute top-0 left-0 right-0 p-2 text-center text-white text-xs bg-black/50 z-10 pointer-events-none">
-                    QRコードを枠内に映してください
-                </div>
-                {/* Square Guide Framework */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-48 h-48 border-2 border-white/80 rounded-lg relative">
-                        <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-green-500 -mt-0.5 -ml-0.5"></div>
-                        <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-green-500 -mt-0.5 -mr-0.5"></div>
-                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-green-500 -mb-0.5 -ml-0.5"></div>
-                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-green-500 -mb-0.5 -mr-0.5"></div>
-                    </div>
-                </div>
-            </div>
-        )}
-    </div>
+
 
     {/* LIST AREA */ }
     {
