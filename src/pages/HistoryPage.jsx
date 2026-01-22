@@ -332,10 +332,10 @@ const HistoryPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
-            <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10">
+            <header className="bg-amber-500 text-white p-4 shadow-md sticky top-0 z-10">
                 <div className="container mx-auto max-w-lg flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => navigate('/')} className="p-1.5 bg-blue-700 rounded-full hover:bg-blue-800 transition-colors">
+                        <button onClick={() => navigate('/')} className="p-1.5 bg-amber-600 rounded-full hover:bg-amber-700 transition-colors">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                         </button>
                         <h1 className="text-lg font-bold">発注・納入履歴</h1>

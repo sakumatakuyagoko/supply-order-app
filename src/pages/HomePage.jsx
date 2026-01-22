@@ -33,12 +33,12 @@ function HomePage() {
             title: '発注履歴',
             subtitle: '過去の注文を確認',
             icon: (
-                <svg className="w-12 h-12 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             ),
             path: '/history',
-            color: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
+            color: 'bg-amber-50 hover:bg-amber-100 border-amber-200',
             active: true
         },
         {
