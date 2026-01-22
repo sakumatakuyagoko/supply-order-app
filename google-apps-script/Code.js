@@ -119,7 +119,7 @@ function doPost(e) {
                 body.category,
                 body.price,
                 body.unit,
-                'In Stock',
+                body.stockStatus || '共通', // Mapped to Category (Col index 5)
                 imageUrl
             ]);
 
@@ -280,37 +280,7 @@ function doPost(e) {
                 }
 
                 results.push(sheetOrderId);
-            }
-
-function saveImageToDrive(base64Data, fileName) {
-                    try {
-                        // 1. Parse Base64
-                        // Format: "data:image/jpeg;base64,....."
-                        const split = base64Data.split(',');
-                        const contentType = split[0].split(':')[1].split(';')[0];
-                        const bytes = Utilities.base64Decode(split[1]);
-                        const blob = Utilities.newBlob(bytes, contentType, fileName);
-
-                        // 2. Save to Drive (Product Images Folder)
-                        // You might want a specific folder ID, but root is fine for now or create 'Product Images'
-                        const folders = DriveApp.getFoldersByName('Product Images');
-                        let folder;
-                        if (folders.hasNext()) {
-                            folder = folders.next();
-                        } else {
-                            folder = DriveApp.createFolder('Product Images');
-                        }
-
-                        const file = folder.createFile(blob);
-                        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-                        // 3. Return Download URL (or Thumbnail URL) for direct embedding
-                        // Using thumbnailLink or webContentLink is better for direct usage
-                        return `https://drive.google.com/uc?export=view&id=${file.getId()}`;
-                    } catch (e) {
-                        return ''; // Fail gracefully, maybe return empty string
-                    }
-                });
+            });
 
             return createJSONOutput({
                 success: true,
@@ -329,4 +299,53 @@ function saveImageToDrive(base64Data, fileName) {
             message: 'Error: ' + error.toString()
         });
     }
+}
+
+function saveImageToDrive(base64Data, fileName) {
+    try {
+        // 1. Parse Base64
+        // Format: "data:image/jpeg;base64,....."
+        const split = base64Data.split(',');
+        const contentType = split[0].split(':')[1].split(';')[0];
+        const bytes = Utilities.base64Decode(split[1]);
+        const blob = Utilities.newBlob(bytes, contentType, fileName);
+
+        // 2. Save to Drive (Product Images Folder)
+        // You might want a specific folder ID, but root is fine for now or create 'Product Images'
+        const folders = DriveApp.getFoldersByName('Product Images');
+        let folder;
+        if (folders.hasNext()) {
+            folder = folders.next();
+        } else {
+            folder = DriveApp.createFolder('Product Images');
+        }
+
+        const file = folder.createFile(blob);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+        // 3. Return Download URL (or Thumbnail URL) for direct embedding
+        // Using thumbnailLink or webContentLink is better for direct usage
+        return `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+    } catch (e) {
+        return ''; // Fail gracefully, maybe return empty string
+    }
+});
+
+return createJSONOutput({
+    success: true,
+    message: 'Orders processed successfully',
+    orderIds: results
+});
+        }
+
+        else {
+    return createJSONOutput({ success: false, message: 'Legacy format not supported.' });
+}
+
+    } catch (error) {
+    return createJSONOutput({
+        success: false,
+        message: 'Error: ' + error.toString()
+    });
+}
 }
