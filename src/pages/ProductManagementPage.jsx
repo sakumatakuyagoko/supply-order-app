@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchProducts } from '../services/api';
@@ -19,7 +18,7 @@ const ProductManagementPage = () => {
         category: '共通', // New: Fixed
         price: '',
         unit: '個',
-        image: '', 
+        image: '',
     });
     const [imagePreview, setImagePreview] = useState(null);
 
@@ -144,15 +143,15 @@ const ProductManagementPage = () => {
             category: product.stockStatus || '共通', // Map DB 'stockStatus' to Category (Assuming I'll save it there)
             price: product.price,
             unit: product.unit || '個',
-            image: product.image 
+            image: product.image
         });
         setImagePreview(product.image);
         window.scrollTo(0, 0);
     };
 
     // Filter products for search
-    const filteredProducts = products.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const filteredProducts = products.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(p.id).includes(searchQuery)
     );
 
@@ -172,22 +171,22 @@ const ProductManagementPage = () => {
 
             <main className="container mx-auto p-4 max-w-lg">
                 {statusMessage.text && (
-                    <div className={`mb - 4 p - 3 rounded - lg text - sm font - bold ${ statusMessage.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700' } `}>
+                    <div className={`mb - 4 p - 3 rounded - lg text - sm font - bold ${statusMessage.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} `}>
                         {statusMessage.text}
                     </div>
                 )}
 
                 {/* Tabs */}
                 <div className="flex bg-white rounded-lg p-1 shadow-sm mb-6">
-                    <button 
+                    <button
                         onClick={() => { setActiveTab('register'); setFormData({ id: '', name: '', supplier: '', category: '共通', price: '', unit: '個', image: '' }); setImagePreview(null); }}
-                        className={`flex - 1 py - 2 text - sm font - bold rounded - md transition - all ${ activeTab === 'register' ? 'bg-amber-100 text-amber-700' : 'text-gray-500' } `}
+                        className={`flex - 1 py - 2 text - sm font - bold rounded - md transition - all ${activeTab === 'register' ? 'bg-amber-100 text-amber-700' : 'text-gray-500'} `}
                     >
                         新規登録
                     </button>
-                    <button 
+                    <button
                         onClick={() => { setActiveTab('edit'); setFormData({ id: '', name: '', supplier: '', category: '共通', price: '', unit: '個', image: '' }); setImagePreview(null); }}
-                        className={`flex - 1 py - 2 text - sm font - bold rounded - md transition - all ${ activeTab === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-500' } `}
+                        className={`flex - 1 py - 2 text - sm font - bold rounded - md transition - all ${activeTab === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'} `}
                     >
                         編集・変更
                     </button>
@@ -196,26 +195,26 @@ const ProductManagementPage = () => {
                 {/* EDIT MODE: Product Search List */}
                 {activeTab === 'edit' && !formData.id && (
                     <div className="space-y-4">
-                        <input 
-                            type="text" 
-                            placeholder="商品名またはIDで検索..." 
+                        <input
+                            type="text"
+                            placeholder="商品名またはIDで検索..."
                             className="w-full p-2 border border-gray-300 rounded-lg"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                         <div className="grid gap-2">
-                             {filteredProducts.slice(0, 20).map(p => (
-                                 <div key={p.id} onClick={() => handleSelectProductToEdit(p)} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:bg-gray-50">
-                                     <div className="w-12 h-12 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                         {p.image ? <img src={p.image} className="w-full h-full object-cover" alt="" /> : <span className="text-xs text-gray-400">No Img</span>}
-                                     </div>
-                                     <div>
-                                         <div className="font-bold text-gray-800">{p.name}</div>
-                                         <div className="text-xs text-gray-500">ID: {p.id} / ¥{p.price}</div>
-                                     </div>
-                                 </div>
-                             ))}
-                             {filteredProducts.length === 0 && <div className="text-center text-gray-400">該当なし</div>}
+                            {filteredProducts.slice(0, 20).map(p => (
+                                <div key={p.id} onClick={() => handleSelectProductToEdit(p)} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:bg-gray-50">
+                                    <div className="w-12 h-12 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                        {p.image ? <img src={p.image} className="w-full h-full object-cover" alt="" /> : <span className="text-xs text-gray-400">No Img</span>}
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-gray-800">{p.name}</div>
+                                        <div className="text-xs text-gray-500">ID: {p.id} / ¥{p.price}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredProducts.length === 0 && <div className="text-center text-gray-400">該当なし</div>}
                         </div>
                     </div>
                 )}
@@ -224,24 +223,24 @@ const ProductManagementPage = () => {
                 {(activeTab === 'register' || (activeTab === 'edit' && formData.id)) && (
                     <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h2 className="font-bold text-lg mb-4 text-gray-700">
-                            {activeTab === 'register' ? '商品情報の入力' : `商品編集(ID: ${ formData.id })`}
+                            {activeTab === 'register' ? '商品情報の入力' : `商品編集(ID: ${formData.id})`}
                         </h2>
-                        
+
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Image Upload */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-600 mb-1">商品画像</label>
                                 <div className="flex items-center gap-4">
                                     <div className="w-20 h-20 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden relative group">
-                                         {imagePreview ? (
-                                             <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
-                                         ) : (
-                                             <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                         )}
+                                        {imagePreview ? (
+                                            <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                                        ) : (
+                                            <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        )}
                                     </div>
                                     <div className="flex-1">
-                                        <input 
-                                            type="file" 
+                                        <input
+                                            type="file"
                                             accept="image/*"
                                             onChange={handleImageChange}
                                             className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -254,14 +253,14 @@ const ProductManagementPage = () => {
                             {/* Name */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-600 mb-1">商品名 <span className="text-red-500">*</span></label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     name="name"
-                                    value={formData.name} 
+                                    value={formData.name}
                                     onChange={handleInputChange}
                                     className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
                                     placeholder="例: コピー用紙 A4"
-                                    required 
+                                    required
                                 />
                             </div>
 
@@ -269,8 +268,8 @@ const ProductManagementPage = () => {
                             <div className="grid grid-cols-1 gap-3">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-600 mb-1">発注先 (業者名) <span className="text-red-500">*</span></label>
-                                    <SearchableSelect 
-                                        value={formData.supplier} 
+                                    <SearchableSelect
+                                        value={formData.supplier}
                                         onChange={(val) => setFormData(prev => ({ ...prev, supplier: val }))}
                                         options={uniqueSuppliers}
                                         placeholder="例: 大塚商会 (新規入力可)"
@@ -279,9 +278,9 @@ const ProductManagementPage = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-600 mb-1">カテゴリ <span className="text-red-500">*</span></label>
-                                        <select 
-                                            name="category" 
-                                            value={formData.category} 
+                                        <select
+                                            name="category"
+                                            value={formData.category}
                                             onChange={handleInputChange}
                                             className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:bg-white"
                                         >
@@ -290,9 +289,9 @@ const ProductManagementPage = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-600 mb-1">単位</label>
-                                        <select 
-                                            name="unit" 
-                                            value={formData.unit} 
+                                        <select
+                                            name="unit"
+                                            value={formData.unit}
                                             onChange={handleInputChange}
                                             className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:bg-white"
                                         >
@@ -312,10 +311,10 @@ const ProductManagementPage = () => {
                             {/* Price */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-600 mb-1">単価 (円) <span className="text-red-500">*</span></label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     name="price"
-                                    value={formData.price} 
+                                    value={formData.price}
                                     onChange={handleInputChange}
                                     className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:bg-white text-lg font-mono"
                                     placeholder="0"
@@ -326,18 +325,18 @@ const ProductManagementPage = () => {
                             {/* Actions */}
                             <div className="pt-4 flex gap-3">
                                 {activeTab === 'edit' && (
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => { setFormData({ id: '', name: '', supplier: '', category: '共通', price: '', unit: '個', image: '' }); setImagePreview(null); }}
                                         className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold"
                                     >
                                         キャンセル
                                     </button>
                                 )}
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={loading}
-                                    className={`flex - [2] py - 3 rounded - lg font - bold text - white shadow - md ${ loading ? 'bg-gray-400' : 'bg-amber-500 hover:bg-amber-600' } `}
+                                    className={`flex - [2] py - 3 rounded - lg font - bold text - white shadow - md ${loading ? 'bg-gray-400' : 'bg-amber-500 hover:bg-amber-600'} `}
                                 >
                                     {loading ? '処理中...' : (activeTab === 'register' ? '登録する' : '更新する')}
                                 </button>
