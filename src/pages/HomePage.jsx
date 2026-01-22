@@ -39,7 +39,7 @@ function HomePage() {
             ),
             path: '/history',
             color: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
-            active: false // Coming soon
+            active: true
         },
         {
             title: 'アイテム登録・変更',
