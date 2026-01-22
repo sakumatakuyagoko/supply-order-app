@@ -1,7 +1,90 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders, receiveOrder } from '../services/adminApi';
 import { fetchProducts } from '../services/api';
+
+// --- Custom Searchable Select Component ---
+const SearchableSelect = ({ value, onChange, options, placeholder }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    // Determine displayed options:
+    // If the current input matches an option exactly, show ALL options (user wants to switch).
+    // Otherwise, show filtered options.
+    const displayedOptions = useMemo(() => {
+        if (!value) return options;
+        if (options.includes(value)) return options;
+
+        const filtered = options.filter(opt =>
+            opt.toLowerCase().includes(value.toLowerCase())
+        );
+        return filtered.length > 0 ? filtered : [];
+    }, [value, options]);
+
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelect = (opt) => {
+        onChange(opt === 'すべて' ? '' : opt);
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="relative text-sm" ref={wrapperRef}>
+            <div className="relative">
+                <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none pr-8"
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    onFocus={(e) => {
+                        e.target.select();
+                        setIsOpen(true);
+                    }}
+                    onClick={() => setIsOpen(true)}
+                />
+                {/* Clear 'X' Button (visible if value exists) */}
+                {value && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onChange('');
+                            setIsOpen(true);
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                )}
+            </div>
+
+            {/* Dropdown Options */}
+            {isOpen && displayedOptions.length > 0 && (
+                <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded mt-1 shadow-lg max-h-60 overflow-auto">
+                    {displayedOptions.map((opt, idx) => (
+                        <li
+                            key={idx}
+                            className={`px-3 py-2 cursor-pointer hover:bg-blue-50 ${opt === value ? 'bg-blue-100 font-bold text-blue-800' : 'text-gray-700'}`}
+                            onClick={() => handleSelect(opt)}
+                        >
+                            {opt}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+};
+
 
 const HistoryPage = () => {
     const navigate = useNavigate();
@@ -47,22 +130,23 @@ const HistoryPage = () => {
     };
 
     // Derived Data for Autocomplete
+    // User Request: 'すべて' (All) at the BOTTOM
     const uniqueOrderers = useMemo(() => {
         if (!orders) return [];
-        const list = [...new Set(orders.map(o => o?.Orderer).filter(Boolean))];
-        return ['すべて', ...list];
+        const list = [...new Set(orders.map(o => o?.Orderer).filter(Boolean).filter(x => x !== 'すべて'))];
+        return [...list, 'すべて'];
     }, [orders]);
 
     const uniqueSuppliers = useMemo(() => {
         if (!orders) return [];
-        const list = [...new Set(orders.map(o => o?.Supplier).filter(Boolean))];
-        return ['すべて', ...list];
+        const list = [...new Set(orders.map(o => o?.Supplier).filter(Boolean).filter(x => x !== 'すべて'))];
+        return [...list, 'すべて'];
     }, [orders]);
 
     const uniqueProducts = useMemo(() => {
         if (!products) return [];
-        const list = [...new Set(products.map(p => p?.name).filter(Boolean))];
-        return ['すべて', ...list];
+        const list = [...new Set(products.map(p => p?.name).filter(Boolean).filter(x => x !== 'すべて'))];
+        return [...list, 'すべて'];
     }, [products]);
 
     // Filtering & Sorting Logic
@@ -240,15 +324,6 @@ const HistoryPage = () => {
         }
     };
 
-    const handleFilterChange = (setter) => (e) => {
-        const val = e.target.value;
-        if (val === 'すべて') {
-            setter('');
-        } else {
-            setter(val);
-        }
-    };
-
     const clearFilters = () => {
         setFilterOrderer('');
         setFilterSupplier('');
@@ -302,38 +377,29 @@ const HistoryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <input
-                                list="orderers"
-                                placeholder="発注者"
-                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                            <SearchableSelect
                                 value={filterOrderer}
-                                onChange={handleFilterChange(setFilterOrderer)}
-                                onFocus={(e) => e.target.select()}
+                                onChange={setFilterOrderer}
+                                options={uniqueOrderers}
+                                placeholder="発注者"
                             />
-                            <datalist id="orderers">{uniqueOrderers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                         <div>
-                            <input
-                                list="suppliers"
-                                placeholder="業者"
-                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                            <SearchableSelect
                                 value={filterSupplier}
-                                onChange={handleFilterChange(setFilterSupplier)}
-                                onFocus={(e) => e.target.select()}
+                                onChange={setFilterSupplier}
+                                options={uniqueSuppliers}
+                                placeholder="業者"
                             />
-                            <datalist id="suppliers">{uniqueSuppliers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                     </div>
                     <div>
-                        <input
-                            list="products"
-                            placeholder="商品名"
-                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                        <SearchableSelect
                             value={filterProduct}
-                            onChange={handleFilterChange(setFilterProduct)}
-                            onFocus={(e) => e.target.select()}
+                            onChange={setFilterProduct}
+                            options={uniqueProducts}
+                            placeholder="商品名"
                         />
-                        <datalist id="products">{uniqueProducts.map((x, i) => <option key={i} value={x} />)}</datalist>
                     </div>
                 </div>
 
