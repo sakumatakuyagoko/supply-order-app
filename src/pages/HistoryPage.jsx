@@ -33,11 +33,14 @@ const HistoryPage = () => {
                 fetchOrders(),
                 fetchProducts()
             ]);
-            setOrders(ordersData);
-            setProducts(productsData);
+            // Defensive checks
+            setOrders(Array.isArray(ordersData) ? ordersData : []);
+            setProducts(Array.isArray(productsData) ? productsData : []);
         } catch (error) {
             console.error(error);
             setStatusMessage({ type: 'error', text: 'データの取得に失敗しました' });
+            setOrders([]);
+            setProducts([]);
         } finally {
             setLoading(false);
         }
@@ -45,22 +48,26 @@ const HistoryPage = () => {
 
     // Derived Data for Autocomplete
     const uniqueOrderers = useMemo(() => {
-        const list = [...new Set(orders.map(o => o.Orderer).filter(Boolean))];
-        return list; // Explicit clear button handles clearing now
+        if (!orders) return [];
+        const list = [...new Set(orders.map(o => o?.Orderer).filter(Boolean))];
+        return list;
     }, [orders]);
 
     const uniqueSuppliers = useMemo(() => {
-        const list = [...new Set(orders.map(o => o.Supplier).filter(Boolean))];
+        if (!orders) return [];
+        const list = [...new Set(orders.map(o => o?.Supplier).filter(Boolean))];
         return list;
     }, [orders]);
 
     const uniqueProducts = useMemo(() => {
-        const list = products.map(p => p.name);
+        if (!products) return [];
+        const list = products.map(p => p?.name).filter(Boolean);
         return list;
     }, [products]);
 
     // Filtering & Sorting Logic
     useEffect(() => {
+        if (!orders) return;
         let result = [...orders];
 
         // 1. Tab Filter
@@ -72,31 +79,34 @@ const HistoryPage = () => {
 
         // 2. Field Filters
         if (filterOrderer) {
-            result = result.filter(o => String(o.Orderer).toLowerCase().includes(filterOrderer.toLowerCase()));
+            result = result.filter(o => String(o.Orderer || '').toLowerCase().includes(filterOrderer.toLowerCase()));
         }
         if (filterSupplier) {
-            result = result.filter(o => String(o.Supplier).toLowerCase().includes(filterSupplier.toLowerCase()));
+            result = result.filter(o => String(o.Supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
         }
         if (filterProduct) {
-            result = result.filter(o => String(o.ProductName).toLowerCase().includes(filterProduct.toLowerCase()));
+            result = result.filter(o => String(o.ProductName || '').toLowerCase().includes(filterProduct.toLowerCase()));
         }
 
         // 3. Sorting
         result.sort((a, b) => {
+            const dateA = new Date(a.Date);
+            const dateB = new Date(b.Date);
+
             if (activeTab === 'pending') {
-                // Urgent first, then Oldest Date first
-                const isUrgentA = a.IsUrgent === true || a.IsUrgent === 'TRUE';
-                const isUrgentB = b.IsUrgent === true || b.IsUrgent === 'TRUE';
+                // Urgent first
+                const isUrgentA = String(a.IsUrgent) === 'true' || a.IsUrgent === true || String(a.IsUrgent) === 'TRUE';
+                const isUrgentB = String(b.IsUrgent) === 'true' || b.IsUrgent === true || String(b.IsUrgent) === 'TRUE';
                 if (isUrgentA !== isUrgentB) return isUrgentB ? 1 : -1;
-                return new Date(a.Date) - new Date(b.Date);
+                return dateA - dateB;
             } else if (activeTab === 'received') {
-                // ReceivedDate Desc (fallback to Date if missing)
-                const dateA = a.ReceivedAt ? new Date(a.ReceivedAt) : new Date(a.Date);
-                const dateB = b.ReceivedAt ? new Date(b.ReceivedAt) : new Date(b.Date);
-                return dateB - dateA;
+                // ReceivedDate Desc
+                const rDateA = a.ReceivedAt ? new Date(a.ReceivedAt) : dateA;
+                const rDateB = b.ReceivedAt ? new Date(b.ReceivedAt) : dateB;
+                return rDateB - rDateA;
             } else {
                 // All: Date Desc
-                return new Date(b.Date) - new Date(a.Date);
+                return dateB - dateA;
             }
         });
 
@@ -106,21 +116,27 @@ const HistoryPage = () => {
     // Grouping
     const groupedList = useMemo(() => {
         const groups = {};
+        if (!filteredOrders) return [];
+
         filteredOrders.forEach(item => {
+            if (!item || !item.OrderId) return;
+
             if (!groups[item.OrderId]) {
+                const d = new Date(item.Date);
                 groups[item.OrderId] = {
                     id: item.OrderId,
-                    date: new Date(item.Date).toLocaleDateString(),
+                    date: isNaN(d) ? 'No Date' : d.toLocaleDateString(),
                     receivedAt: item.ReceivedAt ? new Date(item.ReceivedAt) : null,
-                    supplier: item.Supplier,
-                    orderer: item.Orderer,
+                    supplier: item.Supplier || 'Unknown',
+                    orderer: item.Orderer || 'Unknown',
                     status: 'Mixed',
                     isUrgent: false,
                     items: []
                 };
             }
             // Check urgency bubble up
-            if (item.IsUrgent === true || item.IsUrgent === 'TRUE') {
+            const isUrgent = String(item.IsUrgent) === 'true' || item.IsUrgent === true || String(item.IsUrgent) === 'TRUE';
+            if (isUrgent) {
                 groups[item.OrderId].isUrgent = true;
             }
 
@@ -133,7 +149,7 @@ const HistoryPage = () => {
                 ...item,
                 price: price,
                 image: image,
-                total: price * item.Quantity
+                total: price * (parseInt(item.Quantity) || 0)
             });
         });
 
@@ -152,11 +168,12 @@ const HistoryPage = () => {
         list.sort((a, b) => {
             if (activeTab === 'pending') {
                 if (a.isUrgent !== b.isUrgent) return b.isUrgent ? 1 : -1;
-                return new Date(a.date) - new Date(b.date);
+                // Basic string compare for dates if using formatted strings, assuming YYYY/MM/DD logic or similar order
+                return a.date.localeCompare(b.date);
             } else if (activeTab === 'received') {
                 const tA = a.receivedAt ? a.receivedAt.getTime() : 0;
                 const tB = b.receivedAt ? b.receivedAt.getTime() : 0;
-                return tB - tA;
+                return tB - tA; // Descending
             } else {
                 return b.id.localeCompare(a.id);
             }
@@ -165,7 +182,7 @@ const HistoryPage = () => {
         return list;
     }, [filteredOrders, products, activeTab]);
 
-    // Monthly Total Calculation (for Received tab)
+    // Monthly Total Calculation
     const monthlyTotal = useMemo(() => {
         if (activeTab !== 'received') return 0;
         const now = new Date();
@@ -175,7 +192,9 @@ const HistoryPage = () => {
         let total = 0;
         groupedList.forEach(group => {
             const dateToCheck = group.receivedAt || new Date(group.date);
-            if (dateToCheck.getFullYear() === currentYear && dateToCheck.getMonth() === currentMonth) {
+            if (dateToCheck instanceof Date && !isNaN(dateToCheck) &&
+                dateToCheck.getFullYear() === currentYear &&
+                dateToCheck.getMonth() === currentMonth) {
                 group.items.forEach(item => total += item.total);
             }
         });
@@ -218,6 +237,15 @@ const HistoryPage = () => {
             setSelectedItems(selectedItems.filter(i => i !== productName));
         } else {
             setSelectedItems([...selectedItems, productName]);
+        }
+    };
+
+    const handleFilterChange = (setter) => (e) => {
+        const val = e.target.value;
+        if (val === 'すべて') {
+            setter('');
+        } else {
+            setter(val);
         }
     };
 
@@ -294,9 +322,9 @@ const HistoryPage = () => {
                         <div className="space-y-4">
                             {groupedList.map(group => (
                                 <div key={group.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-                                    {/* URGENT INDICATOR (Left Top) */}
+                                    {/* URGENT INDICATOR - Simplified style */}
                                     {group.isUrgent && (
-                                        <div className="absolute top-0 left-0 bg-red-600/90 text-white text-[10px] px-2 py-0.5 rounded-br-lg font-bold z-10 shadow-sm backdrop-blur-sm">至急</div>
+                                        <div className="absolute top-0 left-0 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-br-lg font-bold z-10 shadow-sm opacity-90">至急</div>
                                     )}
 
                                     <div className="p-3">
@@ -306,14 +334,16 @@ const HistoryPage = () => {
                                                 <div className="text-[10px] text-gray-400 font-mono mb-1">{group.id}</div>
                                                 <div className="text-xl font-bold text-blue-800">{group.orderer}</div>
                                             </div>
-                                            {/* Larger Date Font */}
                                             <div className="text-right">
-                                                <div className="text-sm font-bold text-gray-600 mb-1">{group.receivedAt ? `納入: ${group.receivedAt.toLocaleDateString()}` : `発注: ${group.date}`}</div>
+                                                {/* Safe Date Display */}
+                                                <div className="text-sm font-bold text-gray-600 mb-1">
+                                                    {group.receivedAt ? `納入: ${group.receivedAt.toLocaleDateString()}` : `発注: ${group.date}`}
+                                                </div>
                                                 <div className="text-xs text-gray-500">{group.supplier}</div>
                                             </div>
                                         </div>
 
-                                        {/* ITEMS LIST (With Images) */}
+                                        {/* ITEMS LIST */}
                                         <div className="space-y-2 mb-3 bg-gray-50 p-2 rounded border border-gray-100">
                                             {group.items.map((item, idx) => (
                                                 <div key={idx} className="flex items-start gap-3 text-sm">
@@ -323,9 +353,9 @@ const HistoryPage = () => {
                                                     </div>
 
                                                     <div className="flex-grow min-w-0">
-                                                        <div className="font-bold text-gray-800 leading-tight mb-1">{item.ProductName}</div>
+                                                        <div className="font-bold text-gray-800 leading-tight mb-1">{item.ProductName || '不明な商品'}</div>
                                                         <div className="flex justify-between items-center">
-                                                            <span className="font-mono text-gray-600 text-xs">x{item.Quantity} {item.Unit}</span>
+                                                            <span className="font-mono text-gray-600 text-xs">x{item.Quantity || 0} {item.Unit || '個'}</span>
                                                             {item.Status === 'Received'
                                                                 ? <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">済</span>
                                                                 : <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded">未</span>
@@ -336,7 +366,7 @@ const HistoryPage = () => {
                                             ))}
                                         </div>
 
-                                        {/* ACTIONS (Only for Pending/Partial) */}
+                                        {/* ACTIONS */}
                                         {(group.status === 'Pending' || group.status === 'Partial') ? (
                                             <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
                                                 <div className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">未納入</div>
@@ -363,7 +393,7 @@ const HistoryPage = () => {
                 }
             </main>
 
-            {/* PARTIAL RECEIVE MODAL (Copied Logic) */}
+            {/* PARTIAL RECEIVE MODAL */}
             {modalOrder && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
