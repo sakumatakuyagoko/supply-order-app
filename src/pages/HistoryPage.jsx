@@ -43,10 +43,21 @@ const HistoryPage = () => {
         }
     };
 
-    // Derived Data for Autocomplete
-    const uniqueOrderers = useMemo(() => [...new Set(orders.map(o => o.Orderer).filter(Boolean))], [orders]);
-    const uniqueSuppliers = useMemo(() => [...new Set(orders.map(o => o.Supplier).filter(Boolean))], [orders]);
-    const uniqueProducts = useMemo(() => products.map(p => p.name), [products]);
+    // Derived Data for Autocomplete (Append 'すべて' for clearing)
+    const uniqueOrderers = useMemo(() => {
+        const list = [...new Set(orders.map(o => o.Orderer).filter(Boolean))];
+        return list.length > 0 ? [...list, 'すべて'] : list;
+    }, [orders]);
+
+    const uniqueSuppliers = useMemo(() => {
+        const list = [...new Set(orders.map(o => o.Supplier).filter(Boolean))];
+        return list.length > 0 ? [...list, 'すべて'] : list;
+    }, [orders]);
+
+    const uniqueProducts = useMemo(() => {
+        const list = products.map(p => p.name);
+        return list.length > 0 ? [...list, 'すべて'] : list;
+    }, [products]);
 
     // Filtering & Sorting Logic
     useEffect(() => {
@@ -60,13 +71,13 @@ const HistoryPage = () => {
         }
 
         // 2. Field Filters
-        if (filterOrderer) {
+        if (filterOrderer && filterOrderer !== 'すべて') {
             result = result.filter(o => String(o.Orderer).toLowerCase().includes(filterOrderer.toLowerCase()));
         }
-        if (filterSupplier) {
+        if (filterSupplier && filterSupplier !== 'すべて') {
             result = result.filter(o => String(o.Supplier).toLowerCase().includes(filterSupplier.toLowerCase()));
         }
-        if (filterProduct) {
+        if (filterProduct && filterProduct !== 'すべて') {
             result = result.filter(o => String(o.ProductName).toLowerCase().includes(filterProduct.toLowerCase()));
         }
 
@@ -113,13 +124,15 @@ const HistoryPage = () => {
                 groups[item.OrderId].isUrgent = true;
             }
 
-            // Find product price
+            // Find product price & image
             const product = products.find(p => p.name === item.ProductName);
             const price = product ? parseInt(product.price) || 0 : 0;
+            const image = product ? product.image : null;
 
             groups[item.OrderId].items.push({
                 ...item,
                 price: price,
+                image: image,
                 total: price * item.Quantity
             });
         });
@@ -135,19 +148,17 @@ const HistoryPage = () => {
             else group.status = 'Partial';
         });
 
-        // Re-Apply Sort on Groups (since grouping flattens the list)
-        // Note: The raw list was already sorted, so groups should roughly follow, but strict sort on Group leader is better.
+        // Re-Apply Sort on Groups
         list.sort((a, b) => {
             if (activeTab === 'pending') {
                 if (a.isUrgent !== b.isUrgent) return b.isUrgent ? 1 : -1;
-                return new Date(a.date) - new Date(b.date); // Use string compare if formatted, usually better to store raw date... but let's assume 'date' is string now
+                return new Date(a.date) - new Date(b.date);
             } else if (activeTab === 'received') {
-                // Use raw timestamps from items if avail
                 const tA = a.receivedAt ? a.receivedAt.getTime() : 0;
                 const tB = b.receivedAt ? b.receivedAt.getTime() : 0;
                 return tB - tA;
             } else {
-                return b.id.localeCompare(a.id); // Fallback sort for 'All' by ID descending (proxy for time)
+                return b.id.localeCompare(a.id);
             }
         });
 
@@ -163,9 +174,6 @@ const HistoryPage = () => {
 
         let total = 0;
         groupedList.forEach(group => {
-            // Check if group's received date is this month
-            // If group doesn't have receivedAt, fallback to Date? User asked for 'This month's purchase total'.
-            // Prefer ReceivedAt.
             const dateToCheck = group.receivedAt || new Date(group.date);
             if (dateToCheck.getFullYear() === currentYear && dateToCheck.getMonth() === currentMonth) {
                 group.items.forEach(item => total += item.total);
@@ -177,28 +185,26 @@ const HistoryPage = () => {
 
     // Actions
     const handleReceiveClick = (group) => {
-        // Filter only pending items
         const pendingItems = group.items.filter(i => i.Status === 'Pending');
         if (pendingItems.length === 0) return;
 
         if (pendingItems.length > 1) {
-            setModalOrder(group); // Re-use group object carefully
+            setModalOrder(group);
             setSelectedItems([]);
         } else {
             if (window.confirm(`${pendingItems[0].ProductName} を納入済にしますか？`)) {
-                executeReceive(group.id, null); // Receive ALL (since only 1 pending) or specific? Using null implies 'receive all remaining' in my previous logic, which is fine for single item.
+                executeReceive(group.id, null);
             }
         }
     };
 
     const executeReceive = async (orderId, itemsToReceive) => {
-        // Optimistic UI updates are harder here with full reload, so we might just reloadData()
         try {
             const result = await receiveOrder(orderId, itemsToReceive);
             if (result.success) {
                 setStatusMessage({ type: 'success', text: '納入処理が完了しました' });
                 setModalOrder(null);
-                loadData(); // Reload to refresh statuses
+                loadData();
             } else {
                 setStatusMessage({ type: 'error', text: 'エラー: ' + result.message });
             }
@@ -215,10 +221,14 @@ const HistoryPage = () => {
         }
     };
 
-    const toggleExpand = (id) => {
-        if (expandedOrderIds.includes(id)) setExpandedOrderIds(expandedOrderIds.filter(e => e !== id));
-        else setExpandedOrderIds([...expandedOrderIds, id]);
-    }
+    const handleFilterChange = (setter) => (e) => {
+        const val = e.target.value;
+        if (val === 'すべて') {
+            setter('');
+        } else {
+            setter(val);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
@@ -240,14 +250,14 @@ const HistoryPage = () => {
                     </div>
                 )}
 
-                {/* TABS */}
+                {/* TABS (Order: Pending, Received, All) */}
                 <div className="flex bg-white rounded-lg p-1 shadow-sm mb-4">
                     <button onClick={() => setActiveTab('pending')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'pending' ? 'bg-red-100 text-red-700' : 'text-gray-500'}`}>未納入</button>
                     <button onClick={() => setActiveTab('received')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'received' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>納入済</button>
                     <button onClick={() => setActiveTab('all')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'all' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'}`}>すべて</button>
                 </div>
 
-                {/* MONTHLY TOTAL (RECEIVED ONLY) */}
+                {/* MONTHLY TOTAL */}
                 {activeTab === 'received' && (
                     <div className="mb-4 bg-green-500 text-white p-4 rounded-xl shadow-sm text-center">
                         <div className="text-xs opacity-80">今月の購入金額合計</div>
@@ -260,17 +270,17 @@ const HistoryPage = () => {
                     <div className="text-xs font-bold text-gray-500 mb-1">絞り込み検索</div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <input list="orderers" placeholder="発注者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterOrderer} onChange={e => setFilterOrderer(e.target.value)} />
-                            <datalist id="orderers">{uniqueOrderers.map(x => <option key={x} value={x} />)}</datalist>
+                            <input list="orderers" placeholder="発注者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterOrderer} onChange={handleFilterChange(setFilterOrderer)} />
+                            <datalist id="orderers">{uniqueOrderers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                         <div>
-                            <input list="suppliers" placeholder="業者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)} />
-                            <datalist id="suppliers">{uniqueSuppliers.map(x => <option key={x} value={x} />)}</datalist>
+                            <input list="suppliers" placeholder="業者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterSupplier} onChange={handleFilterChange(setFilterSupplier)} />
+                            <datalist id="suppliers">{uniqueSuppliers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                     </div>
                     <div>
-                        <input list="products" placeholder="商品名" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterProduct} onChange={e => setFilterProduct(e.target.value)} />
-                        <datalist id="products">{uniqueProducts.map(x => <option key={x} value={x} />)}</datalist>
+                        <input list="products" placeholder="商品名" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterProduct} onChange={handleFilterChange(setFilterProduct)} />
+                        <datalist id="products">{uniqueProducts.map((x, i) => <option key={i} value={x} />)}</datalist>
                     </div>
                 </div>
 
@@ -289,48 +299,58 @@ const HistoryPage = () => {
                                         {/* TOP ROW */}
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
-                                                <div className="text-[10px] text-gray-400 font-mono">{group.id}</div>
-                                                <div className="text-lg font-bold text-blue-700">{group.orderer}</div>
+                                                <div className="text-[10px] text-gray-400 font-mono mb-1">{group.id}</div>
+                                                <div className="text-xl font-bold text-blue-800">{group.orderer}</div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-[10px] text-gray-400">{group.date}</div>
-                                                <div className="text-sm font-bold text-gray-600 truncate max-w-[120px]">{group.supplier}</div>
+                                                <div className="text-[10px] text-gray-400 mb-1">{group.receivedAt ? `納入: ${group.receivedAt.toLocaleDateString()}` : `発注: ${group.date}`}</div>
+                                                <div className="text-xs text-gray-500">{group.supplier}</div>
                                             </div>
                                         </div>
 
-                                        {/* ITEMS PREVIEW (Show all for now, concise) */}
+                                        {/* ITEMS LIST (With Images) */}
                                         <div className="space-y-2 mb-3 bg-gray-50 p-2 rounded border border-gray-100">
                                             {group.items.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-sm">
-                                                    <div className="font-bold text-gray-800 truncate flex-grow mr-2">{item.ProductName}</div>
-                                                    <div className="whitespace-nowrap flex items-center gap-2">
-                                                        <span className="font-mono text-gray-600">x{item.Quantity} {item.Unit}</span>
-                                                        {item.Status === 'Received'
-                                                            ? <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">済</span>
-                                                            : <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded">未</span>
-                                                        }
+                                                <div key={idx} className="flex items-start gap-3 text-sm">
+                                                    {/* Image */}
+                                                    <div className="w-10 h-10 flex-shrink-0 bg-white rounded border border-gray-200 flex items-center justify-center overflow-hidden p-0.5 mt-0.5">
+                                                        {item.image ? <img src={item.image} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">No Img</span>}
+                                                    </div>
+
+                                                    <div className="flex-grow min-w-0">
+                                                        <div className="font-bold text-gray-800 leading-tight mb-1">{item.ProductName}</div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="font-mono text-gray-600 text-xs">x{item.Quantity} {item.Unit}</span>
+                                                            {item.Status === 'Received'
+                                                                ? <span className="text-[10px] bg-green-100 text-green-700 px-1 rounded">済</span>
+                                                                : <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded">未</span>
+                                                            }
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
 
-                                        {/* ACTIONS */}
-                                        <div className="flex justify-between items-center">
-                                            <div className={`text-xs px-2 py-1 rounded font-bold ${group.status === 'Received' ? 'bg-green-100 text-green-800' :
-                                                    group.status === 'Pending' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                {group.status === 'Received' ? '納入完了' : group.status === 'Pending' ? '未納入' : '一部納入'}
-                                            </div>
-
-                                            {(group.status === 'Pending' || group.status === 'Partial') && (
+                                        {/* ACTIONS (Only for Pending/Partial) */}
+                                        {(group.status === 'Pending' || group.status === 'Partial') ? (
+                                            <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
+                                                <div className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">未納入</div>
                                                 <button
                                                     onClick={() => handleReceiveClick(group)}
-                                                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-green-700 transition"
+                                                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-green-700 transition flex items-center gap-1"
                                                 >
-                                                    納入受付する
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                                    納入受付
                                                 </button>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-end pt-2 border-t border-gray-100 mt-2">
+                                                <div className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex items-center gap-1">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                                    納入完了
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
