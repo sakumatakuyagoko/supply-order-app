@@ -95,8 +95,8 @@ function doPost(e) {
         if (body.action === 'registerProduct') {
             const sheet = ss.getSheetByName('Products');
             const data = sheet.getDataRange().getValues();
-            // Simple Numeric ID auto-increment
-            // Check max ID in Column A (index 0)
+
+            // Auto-increment ID
             let maxId = 0;
             if (data.length > 1) {
                 for (let i = 1; i < data.length; i++) {
@@ -106,14 +106,21 @@ function doPost(e) {
             }
             const newId = maxId + 1;
 
+            // Handle Image
+            let imageUrl = '';
+            if (body.image) {
+                // If it's a data URL, save it
+                imageUrl = saveImageToDrive(body.image, `product_${newId}`);
+            }
+
             sheet.appendRow([
                 newId,
                 body.name,
                 body.category,
                 body.price,
                 body.unit,
-                'In Stock', // Default status
-                body.image || ''
+                'In Stock',
+                imageUrl
             ]);
 
             return createJSONOutput({ success: true, message: 'Product registered.' });
@@ -146,13 +153,26 @@ function doPost(e) {
                         ]);
                     }
 
-                    // Update columns (Assuming Products format: id, name, category, price, unit, stock, image)
+                    // Handle Image Update
+                    let imageUrl = data[i][6]; // Default to existing
+                    if (body.image) {
+                        // Check if it's a new Base64 string (starts with data:image...)
+                        if (body.image.startsWith('data:image')) {
+                            imageUrl = saveImageToDrive(body.image, `product_${targetId}_${new Date().getTime()}`);
+                        } else {
+                            // It's likely already a URL, so just use it (or keep existing)
+                            imageUrl = body.image;
+                        }
+                    }
+
+                    // Update columns
+                    // A:ID, B:Name, C:Category, D:Price, E:Unit, F:Stock, G:Image
                     if (body.name) sheet.getRange(i + 1, 2).setValue(body.name);
                     if (body.category) sheet.getRange(i + 1, 3).setValue(body.category);
                     if (body.price) sheet.getRange(i + 1, 4).setValue(body.price);
                     if (body.unit) sheet.getRange(i + 1, 5).setValue(body.unit);
                     if (body.stockStatus) sheet.getRange(i + 1, 6).setValue(body.stockStatus);
-                    if (body.image) sheet.getRange(i + 1, 7).setValue(body.image);
+                    sheet.getRange(i + 1, 7).setValue(imageUrl); // Update Image Col
 
                     updated = true;
                     break;
@@ -260,7 +280,37 @@ function doPost(e) {
                 }
 
                 results.push(sheetOrderId);
-            });
+            }
+
+function saveImageToDrive(base64Data, fileName) {
+                    try {
+                        // 1. Parse Base64
+                        // Format: "data:image/jpeg;base64,....."
+                        const split = base64Data.split(',');
+                        const contentType = split[0].split(':')[1].split(';')[0];
+                        const bytes = Utilities.base64Decode(split[1]);
+                        const blob = Utilities.newBlob(bytes, contentType, fileName);
+
+                        // 2. Save to Drive (Product Images Folder)
+                        // You might want a specific folder ID, but root is fine for now or create 'Product Images'
+                        const folders = DriveApp.getFoldersByName('Product Images');
+                        let folder;
+                        if (folders.hasNext()) {
+                            folder = folders.next();
+                        } else {
+                            folder = DriveApp.createFolder('Product Images');
+                        }
+
+                        const file = folder.createFile(blob);
+                        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+                        // 3. Return Download URL (or Thumbnail URL) for direct embedding
+                        // Using thumbnailLink or webContentLink is better for direct usage
+                        return `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+                    } catch (e) {
+                        return ''; // Fail gracefully, maybe return empty string
+                    }
+                });
 
             return createJSONOutput({
                 success: true,

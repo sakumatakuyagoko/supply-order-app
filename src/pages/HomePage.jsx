@@ -51,7 +51,7 @@ function HomePage() {
             ),
             path: '/admin/products',
             color: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
-            active: false // Coming soon
+            active: true // Active now
         }
     ];
 

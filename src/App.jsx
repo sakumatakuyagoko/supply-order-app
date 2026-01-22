@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage';
 import OrderPage from './pages/OrderPage';
 import ReceivePage from './pages/ReceivePage';
 import HistoryPage from './pages/HistoryPage';
+import ProductManagementPage from './pages/ProductManagementPage';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/order" element={<OrderPage />} />
         <Route path="/receive" element={<ReceivePage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/admin/products" element={<ProductManagementPage />} />
       </Routes>
     </Router>
   );
