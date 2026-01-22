@@ -20,7 +20,27 @@ function doGet(e) {
     }
 
     // Default: Get Products
-    return getSheetData('Products');
+    // Force mapping by index to ensure "Supplier" is correctly identified (Col F / Index 5)
+    // A:ID(0), B:Name(1), C:Category(2), D:Price(3), E:Unit(4), F:Supplier(5), G:Image(6) (H is unused now)
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Products');
+    if (!sheet) return createJSONOutput([]);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return createJSONOutput([]);
+
+    const result = [];
+    for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        result.push({
+            id: row[0],
+            name: row[1],
+            category: row[2], // Category (溶接 etc)
+            price: row[3],
+            unit: row[4],
+            supplier: row[5], // Supplier (三和高圧 etc)
+            image: row[6]
+        });
+    }
+    return createJSONOutput(result);
 }
 
 function getSheetData(sheetName) {
@@ -116,10 +136,10 @@ function doPost(e) {
             sheet.appendRow([
                 newId,
                 body.name,
-                body.category,
+                body.category,    // Col C (Index 2)
                 body.price,
                 body.unit,
-                body.stockStatus || '共通', // Mapped to Category (Col index 5)
+                body.supplier || '', // Col F (Index 5) - Fixed as Supplier
                 imageUrl
             ]);
 
@@ -166,12 +186,12 @@ function doPost(e) {
                     }
 
                     // Update columns
-                    // A:ID, B:Name, C:Category, D:Price, E:Unit, F:Stock, G:Image
+                    // A:ID(0), B:Name(1), C:Category(2), D:Price(3), E:Unit(4), F:Supplier(5), G:Image(6)
                     if (body.name) sheet.getRange(i + 1, 2).setValue(body.name);
                     if (body.category) sheet.getRange(i + 1, 3).setValue(body.category);
                     if (body.price) sheet.getRange(i + 1, 4).setValue(body.price);
                     if (body.unit) sheet.getRange(i + 1, 5).setValue(body.unit);
-                    if (body.stockStatus) sheet.getRange(i + 1, 6).setValue(body.stockStatus);
+                    if (body.supplier) sheet.getRange(i + 1, 6).setValue(body.supplier);
                     sheet.getRange(i + 1, 7).setValue(imageUrl); // Update Image Col
 
                     updated = true;
