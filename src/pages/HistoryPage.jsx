@@ -43,20 +43,20 @@ const HistoryPage = () => {
         }
     };
 
-    // Derived Data for Autocomplete (Append 'すべて' for clearing)
+    // Derived Data for Autocomplete
     const uniqueOrderers = useMemo(() => {
         const list = [...new Set(orders.map(o => o.Orderer).filter(Boolean))];
-        return list.length > 0 ? [...list, 'すべて'] : list;
+        return list; // Explicit clear button handles clearing now
     }, [orders]);
 
     const uniqueSuppliers = useMemo(() => {
         const list = [...new Set(orders.map(o => o.Supplier).filter(Boolean))];
-        return list.length > 0 ? [...list, 'すべて'] : list;
+        return list;
     }, [orders]);
 
     const uniqueProducts = useMemo(() => {
         const list = products.map(p => p.name);
-        return list.length > 0 ? [...list, 'すべて'] : list;
+        return list;
     }, [products]);
 
     // Filtering & Sorting Logic
@@ -71,13 +71,13 @@ const HistoryPage = () => {
         }
 
         // 2. Field Filters
-        if (filterOrderer && filterOrderer !== 'すべて') {
+        if (filterOrderer) {
             result = result.filter(o => String(o.Orderer).toLowerCase().includes(filterOrderer.toLowerCase()));
         }
-        if (filterSupplier && filterSupplier !== 'すべて') {
+        if (filterSupplier) {
             result = result.filter(o => String(o.Supplier).toLowerCase().includes(filterSupplier.toLowerCase()));
         }
-        if (filterProduct && filterProduct !== 'すべて') {
+        if (filterProduct) {
             result = result.filter(o => String(o.ProductName).toLowerCase().includes(filterProduct.toLowerCase()));
         }
 
@@ -221,13 +221,10 @@ const HistoryPage = () => {
         }
     };
 
-    const handleFilterChange = (setter) => (e) => {
-        const val = e.target.value;
-        if (val === 'すべて') {
-            setter('');
-        } else {
-            setter(val);
-        }
+    const clearFilters = () => {
+        setFilterOrderer('');
+        setFilterSupplier('');
+        setFilterProduct('');
     };
 
     return (
@@ -266,8 +263,15 @@ const HistoryPage = () => {
                 )}
 
                 {/* FILTERS */}
-                <div className="bg-white p-4 rounded-xl shadow-sm mb-6 space-y-3">
-                    <div className="text-xs font-bold text-gray-500 mb-1">絞り込み検索</div>
+                <div className="bg-white p-4 rounded-xl shadow-sm mb-6 space-y-3 relative">
+                    <div className="flex justify-between items-center mb-1">
+                        <div className="text-xs font-bold text-gray-500">絞り込み検索</div>
+                        {(filterOrderer || filterSupplier || filterProduct) && (
+                            <button onClick={clearFilters} className="text-xs text-blue-600 hover:text-blue-800 underline">
+                                条件をクリア
+                            </button>
+                        )}
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <input list="orderers" placeholder="発注者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterOrderer} onChange={handleFilterChange(setFilterOrderer)} />
@@ -290,20 +294,21 @@ const HistoryPage = () => {
                         <div className="space-y-4">
                             {groupedList.map(group => (
                                 <div key={group.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-                                    {/* URGENT INDICATOR */}
+                                    {/* URGENT INDICATOR (Left Top) */}
                                     {group.isUrgent && (
-                                        <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-bl-lg font-bold z-10">至急</div>
+                                        <div className="absolute top-0 left-0 bg-red-600/90 text-white text-[10px] px-2 py-0.5 rounded-br-lg font-bold z-10 shadow-sm backdrop-blur-sm">至急</div>
                                     )}
 
                                     <div className="p-3">
                                         {/* TOP ROW */}
-                                        <div className="flex justify-between items-start mb-2">
+                                        <div className="flex justify-between items-start mb-2 pt-1">
                                             <div>
                                                 <div className="text-[10px] text-gray-400 font-mono mb-1">{group.id}</div>
                                                 <div className="text-xl font-bold text-blue-800">{group.orderer}</div>
                                             </div>
+                                            {/* Larger Date Font */}
                                             <div className="text-right">
-                                                <div className="text-[10px] text-gray-400 mb-1">{group.receivedAt ? `納入: ${group.receivedAt.toLocaleDateString()}` : `発注: ${group.date}`}</div>
+                                                <div className="text-sm font-bold text-gray-600 mb-1">{group.receivedAt ? `納入: ${group.receivedAt.toLocaleDateString()}` : `発注: ${group.date}`}</div>
                                                 <div className="text-xs text-gray-500">{group.supplier}</div>
                                             </div>
                                         </div>
