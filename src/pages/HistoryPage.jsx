@@ -50,19 +50,19 @@ const HistoryPage = () => {
     const uniqueOrderers = useMemo(() => {
         if (!orders) return [];
         const list = [...new Set(orders.map(o => o?.Orderer).filter(Boolean))];
-        return list;
+        return ['すべて', ...list];
     }, [orders]);
 
     const uniqueSuppliers = useMemo(() => {
         if (!orders) return [];
         const list = [...new Set(orders.map(o => o?.Supplier).filter(Boolean))];
-        return list;
+        return ['すべて', ...list];
     }, [orders]);
 
     const uniqueProducts = useMemo(() => {
         if (!products) return [];
-        const list = products.map(p => p?.name).filter(Boolean);
-        return list;
+        const list = [...new Set(products.map(p => p?.name).filter(Boolean))];
+        return ['すべて', ...list];
     }, [products]);
 
     // Filtering & Sorting Logic
@@ -78,13 +78,13 @@ const HistoryPage = () => {
         }
 
         // 2. Field Filters
-        if (filterOrderer) {
+        if (filterOrderer && filterOrderer !== 'すべて') {
             result = result.filter(o => String(o.Orderer || '').toLowerCase().includes(filterOrderer.toLowerCase()));
         }
-        if (filterSupplier) {
+        if (filterSupplier && filterSupplier !== 'すべて') {
             result = result.filter(o => String(o.Supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()));
         }
-        if (filterProduct) {
+        if (filterProduct && filterProduct !== 'すべて') {
             result = result.filter(o => String(o.ProductName || '').toLowerCase().includes(filterProduct.toLowerCase()));
         }
 
@@ -302,16 +302,37 @@ const HistoryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <input list="orderers" placeholder="発注者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterOrderer} onChange={handleFilterChange(setFilterOrderer)} />
+                            <input
+                                list="orderers"
+                                placeholder="発注者"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                                value={filterOrderer}
+                                onChange={handleFilterChange(setFilterOrderer)}
+                                onFocus={(e) => e.target.select()}
+                            />
                             <datalist id="orderers">{uniqueOrderers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                         <div>
-                            <input list="suppliers" placeholder="業者" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterSupplier} onChange={handleFilterChange(setFilterSupplier)} />
+                            <input
+                                list="suppliers"
+                                placeholder="業者"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                                value={filterSupplier}
+                                onChange={handleFilterChange(setFilterSupplier)}
+                                onFocus={(e) => e.target.select()}
+                            />
                             <datalist id="suppliers">{uniqueSuppliers.map((x, i) => <option key={i} value={x} />)}</datalist>
                         </div>
                     </div>
                     <div>
-                        <input list="products" placeholder="商品名" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={filterProduct} onChange={handleFilterChange(setFilterProduct)} />
+                        <input
+                            list="products"
+                            placeholder="商品名"
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                            value={filterProduct}
+                            onChange={handleFilterChange(setFilterProduct)}
+                            onFocus={(e) => e.target.select()}
+                        />
                         <datalist id="products">{uniqueProducts.map((x, i) => <option key={i} value={x} />)}</datalist>
                     </div>
                 </div>
